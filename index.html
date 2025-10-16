@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive Normal Distribution — UC Davis Style</title>
+  <style>
+    /* ===== UC Davis look & feel (no external assets) ===== */
+    :root{
+      --ucd-blue: #022851;   /* UC Davis Blue (Brand guide) */
+      --ucd-blue-90: #033266;
+      --ucd-blue-80: #1D4776;
+      --ucd-gold: #FFBF00;   /* UC Davis Gold (Brand guide) */
+      --ink-900: #111827;    /* neutral for body text */
+      --ink-700: #374151;
+      --ink-600: #4B5563;
+      --ink-100: #F3F4F6;
+      --panel: #ffffff;
+      --muted: #5B6B7B;
+      --focus: #FFBF00;
+      --curve: var(--ucd-blue);
+      --shade: rgba(255,191,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font: 16px/1.55 "Proxima Nova", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      color: var(--ink-900);
+      background: var(--ink-100);
+    }
+
+    /* Top brand bar */
+    .brandbar {
+      background: var(--ucd-blue);
+      color: #fff;
+      border-bottom: 6px solid var(--ucd-gold);
+    }
+    .brandbar .inner {
+      max-width: 1100px; margin: 0 auto; padding: 14px 16px;
+      display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    }
+    .brand-title {
+      font-weight: 700; letter-spacing: .2px; font-size: 18px;
+    }
+    .brand-sub {
+      opacity: .9; font-size: 14px;
+    }
+
+    /* Main layout */
+    .wrap { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
+    .hero { margin: 12px 0 16px; }
+    .hero h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: .2px; color: var(--ucd-blue); }
+    .hero p { margin: 0; color: var(--ink-700); }
+
+    .grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; align-items: start; }
+    @media (max-width: 960px){ .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      box-shadow: 0 10px 18px rgba(2, 40, 81, 0.06);
+      padding: 16px;
+    }
+
+    /* Chart card */
+    .chart {
+      width: 100%; height: 420px;
+      border: 1px solid #e5e7eb; border-radius: 12px; position: relative; background: #fff; overflow: hidden;
+    }
+    .legend { position: absolute; top: 10px; right: 12px; color: var(--ink-600); font-size: 12px; display: flex; gap: 12px; }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .footer { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 10px; color: var(--ink-600); }
+
+    /* Controls */
+    .controls { display: grid; gap: 12px; }
+    .row { display: grid; grid-template-columns: 110px 1fr 86px; gap: 10px; align-items: center; }
+    .row label { color: var(--ink-700); font-weight: 600; }
+    .row input[type="number"] {
+      width: 100%; padding: 8px 10px; border-radius: 10px;
+      border: 1px solid #d1d5db; background: #fff; color: var(--ink-900);
+    }
+    input[type="range"] { width: 100%; accent-color: var(--ucd-blue); }
+    .radios { display: flex; gap: 14px; flex-wrap: wrap; color: var(--ink-700); }
+    .radios input[type="radio"]{ accent-color: var(--ucd-blue); }
+    .statline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .pill {
+      background: #F9FAFB; border: 1px solid #e5e7eb; padding: 8px 10px; border-radius: 999px; text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .btn {
+      background: var(--ucd-gold);
+      color: #111827;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover { filter: brightness(0.98); }
+    .btn:active { transform: translateY(1px); }
+    .btn:focus, .row input:focus, .radios input:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+    /* Small helper */
+    .caption { font-size: 13px; color: var(--ink-600); margin-top: 6px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+  </style>
+</head>
+<body>
+  <div class="brandbar" role="banner">
+    <div class="inner">
+      <div class="brand-title">UC Davis • Interactive Tools</div>
+      <div class="brand-sub">Normal Distribution Graph</div>
+    </div>
+  </div>
+
+  <main class="wrap" role="main">
+    <header class="hero">
+      <h1>Interactive Normal Distribution</h1>
+      <p>Use the sliders or number fields to set <em>μ</em> (mean), <em>σ</em> (standard deviation), and bounds. The shaded area shows the probability for the selected region.</p>
+    </header>
+
+    <section class="grid" aria-label="Interactive chart and controls">
+      <div class="card">
+        <div class="chart" id="chartBox" aria-live="polite">
+          <svg id="chart" viewBox="0 0 900 420" preserveAspectRatio="xMidYMid meet" aria-label="Normal distribution chart" role="img"></svg>
+          <div class="legend" aria-hidden="true">
+            <span><span class="swatch" style="background: var(--curve)"></span> density f(x)</span>
+            <span><span class="swatch" style="background: var(--ucd-gold)"></span> shaded probability</span>
+          </div>
+        </div>
+        <div class="footer">
+          <div>Domain auto-scales to [μ − 4σ, μ + 4σ].</div>
+          <button class="btn" id="resetBtn" type="button" aria-label="Reset all settings">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="controls">
+          <div class="row">
+            <label for="mu">Mean μ</label>
+            <input type="range" id="mu" min="-10" max="10" step="0.1" value="0" aria-labelledby="mu muNum" />
+            <input type="number" id="muNum" step="0.1" value="0" aria-label="Mean mu numeric input" />
+          </div>
+          <div class="row">
+            <label for="sigma">Std. dev. σ</label>
+            <input type="range" id="sigma" min="0.1" max="5" step="0.1" value="1" aria-labelledby="sigma sigmaNum" />
+            <input type="number" id="sigmaNum" step="0.1" min="0.1" value="1" aria-label="Sigma numeric input" />
+          </div>
+          <div class="row">
+            <label for="x1">Lower x₁</label>
+            <input type="range" id="x1" min="-5" max="5" step="0.1" value="-1" />
+            <input type="number" id="x1Num" step="0.1" value="-1" aria-label="Lower bound x1 numeric input" />
+          </div>
+          <div class="row">
+            <label for="x2">Upper x₂</label>
+            <input type="range" id="x2" min="-5" max="5" step="0.1" value="1" />
+            <input type="number" id="x2Num" step="0.1" value="1" aria-label="Upper bound x2 numeric input" />
+          </div>
+          <fieldset class="radios">
+            <legend class="sr-only">Shading mode</legend>
+            <label><input type="radio" name="mode" value="between" checked /> Between x₁ and x₂</label>
+            <label><input type="radio" name="mode" value="left" /> Left of x₁</label>
+            <label><input type="radio" name="mode" value="right" /> Right of x₂</label>
+            <label><input type="radio" name="mode" value="outside" /> Outside x₁ & x₂</label>
+          </fieldset>
+
+          <div class="statline" aria-label="Calculated values">
+            <div class="pill" id="pVal" aria-live="polite">P = …</div>
+            <div class="pill" id="z1" aria-live="polite">z₁ = …</div>
+            <div class="pill" id="z2" aria-live="polite">z₂ = …</div>
+          </div>
+          <p class="caption">Keyboard tip: use Tab to move between controls; arrow keys adjust sliders.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // --- Math helpers ---
+    const SQRT2 = Math.SQRT2;
+    const SQRT2PI = Math.sqrt(2 * Math.PI);
+    const CLAMP = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    function pdf(x, mu, sigma) {
+      const z = (x - mu) / sigma;
+      return Math.exp(-0.5 * z * z) / (sigma * SQRT2PI);
+    }
+    // Error function approximation (Abramowitz & Stegun 7.1.26)
+    function erf(x) {
+      const sign = Math.sign(x);
+      const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
+      const p = 0.3275911;
+      const absx = Math.abs(x);
+      const t = 1 / (1 + p * absx);
+      const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-absx * absx);
+      return sign * y;
+    }
+    function cdf(x, mu, sigma) {
+      return 0.5 * (1 + erf((x - mu) / (sigma * SQRT2)));
+    }
+
+    // --- State & DOM ---
+    const el = {
+      chart: document.getElementById('chart'),
+      mu: document.getElementById('mu'),
+      muNum: document.getElementById('muNum'),
+      sigma: document.getElementById('sigma'),
+      sigmaNum: document.getElementById('sigmaNum'),
+      x1: document.getElementById('x1'),
+      x1Num: document.getElementById('x1Num'),
+      x2: document.getElementById('x2'),
+      x2Num: document.getElementById('x2Num'),
+      p: document.getElementById('pVal'),
+      z1: document.getElementById('z1'),
+      z2: document.getElementById('z2'),
+      reset: document.getElementById('resetBtn')
+    };
+    const state = { mu: 0, sigma: 1, x1: -1, x2: 1, mode: 'between' };
+
+    // --- Scales ---
+    const W = 900, H = 420, pad = { l: 56, r: 18, t: 16, b: 40 };
+    const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+
+    function xScale(x) { const [minX, maxX] = domainX(); return pad.l + ((x - minX) / (maxX - minX)) * plotW; }
+    function yScale(y) { const maxY = pdf(state.mu, state.mu, state.sigma); return pad.t + ((maxY - y) / maxY) * plotH; }
+    function domainX() { return [state.mu - 4 * state.sigma, state.mu + 4 * state.sigma]; }
+
+    // --- Axis generation ---
+    function niceTicks(min, max, count = 8) {
+      const span = max - min;
+      const step0 = span / Math.max(1, count);
+      const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+      const err = step0 / mag;
+      const step = err >= 7.5 ? 10*mag : err >= 3.5 ? 5*mag : err >= 1.5 ? 2*mag : mag;
+      const start = Math.ceil(min / step) * step;
+      const ticks = [];
+      for (let x = start; x <= max + 1e-9; x += step) ticks.push(+x.toFixed(10));
+      return ticks;
+    }
+    function drawAxes(g) {
+      const [minX, maxX] = domainX();
+      const xTicks = niceTicks(minX, maxX, 8);
+      // X axis
+      g.push(`<line x1="${pad.l}" y1="${pad.t + plotH}" x2="${pad.l + plotW}" y2="${pad.t + plotH}" stroke="#e5e7eb" />`);
+      // Y axis
+      g.push(`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + plotH}" stroke="#e5e7eb" />`);
+      // X ticks + labels
+      xTicks.forEach(t => {
+        const x = xScale(t);
+        g.push(`<line x1="${x}" y1="${pad.t + plotH}" x2="${x}" y2="${pad.t + plotH + 6}" stroke="#d1d5db" />`);
+        g.push(`<text x="${x}" y="${pad.t + plotH + 20}" fill="#6b7280" font-size="12" text-anchor="middle">${formatNumber(t)}</text>`);
+      });
+      // Y ticks
+      const maxY = pdf(state.mu, state.mu, state.sigma);
+      const yTicks = [0, maxY * .25, maxY * .5, maxY * .75, maxY];
+      yTicks.forEach((t,i) => {
+        const y = yScale(t);
+        g.push(`<line x1="${pad.l - 6}" y1="${y}" x2="${pad.l}" y2="${y}" stroke="#d1d5db" />`);
+        g.push(`<text x="${pad.l - 10}" y="${y + 4}" fill="#6b7280" font-size="12" text-anchor="end">${i===0?'0':formatNumber(t)}</text>`);
+      });
+      // Labels
+      g.push(`<text x="${pad.l + plotW/2}" y="${H - 6}" fill="#6b7280" font-size="12" text-anchor="middle">x</text>`);
+      g.push(`<text transform="translate(16 ${pad.t + plotH/2}) rotate(-90)" fill="#6b7280" font-size="12" text-anchor="middle">density f(x)</text>`);
+    }
+
+    // --- Curve & shading ---
+    function buildCurvePath() {
+      const [minX, maxX] = domainX();
+      const N = 400; const dx = (maxX - minX) / (N - 1);
+      let d=''; for(let i=0;i<N;i++){ const x = minX + i*dx; const y = pdf(x, state.mu, state.sigma);
+        const px = xScale(x), py = yScale(y); d += (i===0?'M':'L') + px + ' ' + py + ' ';
+      } return d;
+    }
+    function buildShadedAreaPath() {
+      const [minX, maxX] = domainX();
+      let ranges=[]; let a=Math.min(state.x1,state.x2), b=Math.max(state.x1,state.x2);
+      if (state.mode==='between') ranges=[[a,b]];
+      else if (state.mode==='left') ranges=[[minX,a]];
+      else if (state.mode==='right') ranges=[[b,maxX]];
+      else if (state.mode==='outside') ranges=[[minX,a],[b,maxX]];
+      let paths=[]; for(const [lo,hi] of ranges){
+        const start=Math.max(minX,lo), end=Math.min(maxX,hi); if(end<=start) continue;
+        let d=`M ${xScale(start)} ${yScale(0)} `;
+        const steps=Math.max(2, Math.floor((end-start)/(maxX-minX)*400));
+        for(let i=0;i<=steps;i++){ const x=start+(i/steps)*(end-start); const y=pdf(x,state.mu,state.sigma); d+=`L ${xScale(x)} ${yScale(y)}`; }
+        d+=` L ${xScale(end)} ${yScale(0)} Z`; paths.push(d);
+      } return paths;
+    }
+
+    // --- Calculations ---
+    function probability(){
+      let a=Math.min(state.x1,state.x2), b=Math.max(state.x1,state.x2);
+      if (state.mode==='between') return cdf(b,state.mu,state.sigma)-cdf(a,state.mu,state.sigma);
+      if (state.mode==='left') return cdf(a,state.mu,state.sigma);
+      if (state.mode==='right') return 1-cdf(b,state.mu,state.sigma);
+      if (state.mode==='outside') return cdf(a,state.mu,state.sigma)+(1-cdf(b,state.mu,state.sigma));
+      return 0;
+    }
+    function formatNumber(x){
+      const ax=Math.abs(x);
+      if (ax>=1000) return x.toFixed(0);
+      if (ax>=100) return x.toFixed(1);
+      if (ax>=10) return x.toFixed(2);
+      if (ax>=1) return x.toFixed(3);
+      return x.toFixed(4);
+    }
+
+    // --- Render ---
+    function render(){
+      const g=[];
+      // Background
+      g.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff" />`);
+      // Axes
+      drawAxes(g);
+      // Shaded region(s)
+      const shaded=buildShadedAreaPath();
+      shaded.forEach(path => g.push(`<path d="${path}" fill="var(--shade)" stroke="rgba(2,40,81,0.08)" />`));
+      // Density curve
+      const curve=buildCurvePath();
+      g.push(`<path d="${curve}" fill="none" stroke="var(--curve)" stroke-width="2.25" />`);
+      // Markers for x1/x2
+      const x1px=xScale(state.x1), x2px=xScale(state.x2), baseY=yScale(0);
+      g.push(`<line x1="${x1px}" y1="${pad.t}" x2="${x1px}" y2="${baseY}" stroke="#9CA3AF" stroke-dasharray="4 4" />`);
+      g.push(`<line x1="${x2px}" y1="${pad.t}" x2="${x2px}" y2="${baseY}" stroke="#9CA3AF" stroke-dasharray="4 4" />`);
+      el.chart.innerHTML = g.join('');
+      // Stats
+      const p = CLAMP(probability(), 0, 1);
+      el.p.textContent = `P = ${p.toFixed(6)}`;
+      const z1=(state.x1-state.mu)/state.sigma, z2=(state.x2-state.mu)/state.sigma;
+      el.z1.textContent = `z₁ = ${formatNumber(z1)}`;
+      el.z2.textContent = `z₂ = ${formatNumber(z2)}`;
+      // Range sanity
+      const minX = state.mu - 5 * state.sigma;
+      const maxX = state.mu + 5 * state.sigma;
+      [el.x1, el.x2].forEach(r => { r.min = minX; r.max = maxX; });
+      [el.x1Num, el.x2Num].forEach(n => { n.min = minX; n.max = maxX; });
+    }
+
+    // --- Wiring ---
+    function syncPair(range, number, key, transform=v=>+v){
+      function setBoth(val){ range.value=val; number.value=val; state[key]=+val; render(); }
+      range.addEventListener('input', e => setBoth(transform(e.target.value)));
+      number.addEventListener('input', e => setBoth(transform(e.target.value)));
+    }
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', e => { state.mode = e.target.value; render(); });
+    });
+    syncPair(el.mu, el.muNum, 'mu');
+    syncPair(el.sigma, el.sigmaNum, 'sigma', v => Math.max(0.1, +v));
+    syncPair(el.x1, el.x1Num, 'x1');
+    syncPair(el.x2, el.x2Num, 'x2');
+
+    el.reset.addEventListener('click', () => {
+      state.mu=0; state.sigma=1; state.x1=-1; state.x2=1; state.mode='between';
+      el.mu.value=el.muNum.value=0; el.sigma.value=el.sigmaNum.value=1; el.x1.value=el.x1Num.value=-1; el.x2.value=el.x2Num.value=1;
+      document.querySelector('input[name="mode"][value="between"]').checked = true;
+      render();
+    });
+
+    // First paint
+    render();
+  </script>
+</body>
+</html>
