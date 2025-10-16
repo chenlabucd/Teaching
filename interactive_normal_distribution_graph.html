@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive Normal Distribution</title>
+  <style>
+    :root {
+      --bg: #0f1220;
+      --panel: #171a2a;
+      --muted: #8a90a6;
+      --text: #e6e9f2;
+      --accent: #6ea8fe;
+      --accent-2: #7dd3fc;
+      --danger: #f87171;
+      --ok: #34d399;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+      background: radial-gradient(1200px 800px at 10% 0%, #161a30 0%, var(--bg) 45%);
+      color: var(--text);
+    }
+    .wrap { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 28px; margin: 0 0 12px; letter-spacing: 0.3px; }
+    .subtle { color: var(--muted); }
+
+    .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; align-items: start; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 16px; box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+    }
+
+    /* Controls */
+    .controls { display: grid; gap: 12px; }
+    .row { display: grid; grid-template-columns: 110px 1fr 86px; gap: 10px; align-items: center; }
+    .row label { color: var(--muted); font-weight: 600; }
+    .row input[type="number"] {
+      width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+      outline: none; background: #0f1324; color: var(--text);
+    }
+    input[type="range"] { width: 100%; }
+    .radios { display: flex; gap: 14px; flex-wrap: wrap; }
+    .statline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .pill { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); padding: 8px 10px; border-radius: 999px; text-align: center; }
+
+    /* Graph */
+    .chart {
+      width: 100%; height: 420px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; position: relative; overflow: hidden;
+    }
+    .chart .legend { position: absolute; top: 10px; right: 12px; color: var(--muted); font-size: 12px; }
+    .legend .key { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
+    .legend .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+    .footer { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 12px; }
+    .note { color: var(--muted); font-size: 13px; }
+    .btn {
+      background: linear-gradient(180deg, #2b3359, #1b2244);
+      color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { transform: translateY(1px); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Interactive Normal Distribution</h1>
+    <p class="subtle">Drag the sliders or type values to change <em>μ</em> and <em>σ</em>, set bounds, and see the shaded probability. Everything updates in real time.</p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="chart" id="chartBox">
+          <svg id="chart" viewBox="0 0 900 420" preserveAspectRatio="xMidYMid meet" aria-label="Normal distribution chart" role="img"></svg>
+          <div class="legend">
+            <span class="key"><span class="swatch" style="background: var(--accent)"></span> density f(x)</span>
+            <span class="key"><span class="swatch" style="background: var(--accent-2)"></span> shaded probability</span>
+          </div>
+        </div>
+        <div class="footer">
+          <div class="note">Domain auto-scales to [μ − 4σ, μ + 4σ].</div>
+          <button class="btn" id="resetBtn" type="button">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="controls">
+          <div class="row">
+            <label for="mu">Mean μ</label>
+            <input type="range" id="mu" min="-10" max="10" step="0.1" value="0" />
+            <input type="number" id="muNum" step="0.1" value="0" />
+          </div>
+          <div class="row">
+            <label for="sigma">Std. dev. σ</label>
+            <input type="range" id="sigma" min="0.1" max="5" step="0.1" value="1" />
+            <input type="number" id="sigmaNum" step="0.1" min="0.1" value="1" />
+          </div>
+          <div class="row">
+            <label for="x1">Lower x₁</label>
+            <input type="range" id="x1" min="-5" max="5" step="0.1" value="-1" />
+            <input type="number" id="x1Num" step="0.1" value="-1" />
+          </div>
+          <div class="row">
+            <label for="x2">Upper x₂</label>
+            <input type="range" id="x2" min="-5" max="5" step="0.1" value="1" />
+            <input type="number" id="x2Num" step="0.1" value="1" />
+          </div>
+          <div>
+            <div class="radios" role="radiogroup" aria-label="Shading mode">
+              <label><input type="radio" name="mode" value="between" checked /> Between x₁ and x₂</label>
+              <label><input type="radio" name="mode" value="left" /> Left of x₁</label>
+              <label><input type="radio" name="mode" value="right" /> Right of x₂</label>
+              <label><input type="radio" name="mode" value="outside" /> Outside x₁ & x₂</label>
+            </div>
+          </div>
+
+          <div class="statline">
+            <div class="pill" id="pVal">P = …</div>
+            <div class="pill" id="z1">z₁ = …</div>
+            <div class="pill" id="z2">z₂ = …</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Math helpers ---
+    const SQRT2 = Math.SQRT2;
+    const SQRT2PI = Math.sqrt(2 * Math.PI);
+
+    function pdf(x, mu, sigma) {
+      const z = (x - mu) / sigma;
+      return Math.exp(-0.5 * z * z) / (sigma * SQRT2PI);
+    }
+
+    // Error function approximation (Abramowitz & Stegun 7.1.26)
+    function erf(x) {
+      const sign = Math.sign(x);
+      const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429;
+      const p = 0.3275911;
+      const absx = Math.abs(x);
+      const t = 1 / (1 + p * absx);
+      const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-absx * absx);
+      return sign * y;
+    }
+
+    function cdf(x, mu, sigma) {
+      return 0.5 * (1 + erf((x - mu) / (sigma * SQRT2)));
+    }
+
+    // --- DOM & state ---
+    const el = {
+      chart: document.getElementById('chart'),
+      mu: document.getElementById('mu'),
+      muNum: document.getElementById('muNum'),
+      sigma: document.getElementById('sigma'),
+      sigmaNum: document.getElementById('sigmaNum'),
+      x1: document.getElementById('x1'),
+      x1Num: document.getElementById('x1Num'),
+      x2: document.getElementById('x2'),
+      x2Num: document.getElementById('x2Num'),
+      p: document.getElementById('pVal'),
+      z1: document.getElementById('z1'),
+      z2: document.getElementById('z2'),
+      reset: document.getElementById('resetBtn')
+    };
+
+    const state = { mu: 0, sigma: 1, x1: -1, x2: 1, mode: 'between' };
+
+    // --- Scales ---
+    const W = 900, H = 420, pad = { l: 56, r: 18, t: 16, b: 40 };
+    const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+
+    function xScale(x) {
+      const [minX, maxX] = domainX();
+      return pad.l + ( (x - minX) / (maxX - minX) ) * plotW;
+    }
+
+    function yScale(y) {
+      const maxY = pdf(state.mu, state.mu, state.sigma); // peak height
+      return pad.t + ( (maxY - y) / maxY ) * plotH;
+    }
+
+    function domainX() { return [state.mu - 4 * state.sigma, state.mu + 4 * state.sigma]; }
+
+    // --- Axis generation ---
+    function niceTicks(min, max, count = 8) {
+      const span = max - min;
+      const step0 = span / Math.max(1, count);
+      const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+      const err = step0 / mag;
+      const step = err >= 7.5 ? 10*mag : err >= 3.5 ? 5*mag : err >= 1.5 ? 2*mag : mag;
+      const start = Math.ceil(min / step) * step;
+      const ticks = [];
+      for (let x = start; x <= max + 1e-9; x += step) ticks.push(+x.toFixed(10));
+      return ticks;
+    }
+
+    function drawAxes(g) {
+      const [minX, maxX] = domainX();
+      const xTicks = niceTicks(minX, maxX, 8);
+
+      // X axis line
+      g.push(`<line x1="${pad.l}" y1="${pad.t + plotH}" x2="${pad.l + plotW}" y2="${pad.t + plotH}" stroke="rgba(255,255,255,0.25)" />`);
+
+      // Y axis line
+      g.push(`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t + plotH}" stroke="rgba(255,255,255,0.25)" />`);
+
+      // X ticks + labels
+      xTicks.forEach(t => {
+        const x = xScale(t);
+        g.push(`<line x1="${x}" y1="${pad.t + plotH}" x2="${x}" y2="${pad.t + plotH + 6}" stroke="rgba(255,255,255,0.35)" />`);
+        g.push(`<text x="${x}" y="${pad.t + plotH + 20}" fill="var(--muted)" font-size="12" text-anchor="middle">${formatNumber(t)}</text>`);
+      });
+
+      // Y ticks: choose a few fractions of peak
+      const maxY = pdf(state.mu, state.mu, state.sigma);
+      const yTicks = [0, maxY * 0.25, maxY * 0.5, maxY * 0.75, maxY];
+      yTicks.forEach((t, i) => {
+        const y = yScale(t);
+        g.push(`<line x1="${pad.l - 6}" y1="${y}" x2="${pad.l}" y2="${y}" stroke="rgba(255,255,255,0.35)" />`);
+        g.push(`<text x="${pad.l - 10}" y="${y + 4}" fill="var(--muted)" font-size="12" text-anchor="end">${i === 0 ? '0' : formatNumber(t)}</text>`);
+      });
+
+      // Axis labels
+      g.push(`<text x="${pad.l + plotW/2}" y="${H - 6}" fill="var(--muted)" font-size="12" text-anchor="middle">x</text>`);
+      g.push(`<text transform="translate(16 ${pad.t + plotH/2}) rotate(-90)" fill="var(--muted)" font-size="12" text-anchor="middle">density f(x)</text>`);
+    }
+
+    // --- Curve and shading ---
+    function buildCurvePath() {
+      const [minX, maxX] = domainX();
+      const N = 400;
+      const dx = (maxX - minX) / (N - 1);
+      let d = '';
+      for (let i = 0; i < N; i++) {
+        const x = minX + i * dx;
+        const y = pdf(x, state.mu, state.sigma);
+        const px = xScale(x), py = yScale(y);
+        d += (i === 0 ? 'M' : 'L') + px + ' ' + py + ' ';
+      }
+      return d;
+    }
+
+    function buildShadedAreaPath() {
+      const [minX, maxX] = domainX();
+      const maxY = pdf(state.mu, state.mu, state.sigma);
+      const N = 400;
+      const dx = (maxX - minX) / (N - 1);
+      let ranges = [];
+      let a = Math.min(state.x1, state.x2);
+      let b = Math.max(state.x1, state.x2);
+
+      if (state.mode === 'between') ranges = [[a, b]];
+      else if (state.mode === 'left') ranges = [[minX, a]];
+      else if (state.mode === 'right') ranges = [[b, maxX]];
+      else if (state.mode === 'outside') ranges = [[minX, a], [b, maxX]];
+
+      let paths = [];
+      for (const [lo, hi] of ranges) {
+        const start = Math.max(minX, lo);
+        const end = Math.min(maxX, hi);
+        if (end <= start) continue;
+        let d = '';
+        // Start from baseline at start
+        d += `M ${xScale(start)} ${yScale(0)} `;
+        // Up to curve
+        const steps = Math.max(2, Math.floor((end - start) / (maxX - minX) * N));
+        for (let i = 0; i <= steps; i++) {
+          const x = start + (i / steps) * (end - start);
+          const y = pdf(x, state.mu, state.sigma);
+          d += `L ${xScale(x)} ${yScale(y)}`;
+        }
+        // Down to baseline at end, and close
+        d += ` L ${xScale(end)} ${yScale(0)} Z`;
+        paths.push(d);
+      }
+      return paths;
+    }
+
+    // --- Probability & z-scores ---
+    function probability() {
+      let a = Math.min(state.x1, state.x2);
+      let b = Math.max(state.x1, state.x2);
+      if (state.mode === 'between') return cdf(b, state.mu, state.sigma) - cdf(a, state.mu, state.sigma);
+      if (state.mode === 'left') return cdf(a, state.mu, state.sigma);
+      if (state.mode === 'right') return 1 - cdf(b, state.mu, state.sigma);
+      if (state.mode === 'outside') return cdf(a, state.mu, state.sigma) + (1 - cdf(b, state.mu, state.sigma));
+      return 0;
+    }
+
+    function formatNumber(x) {
+      const ax = Math.abs(x);
+      if (ax >= 1000) return x.toFixed(0);
+      if (ax >= 100) return x.toFixed(1);
+      if (ax >= 10) return x.toFixed(2);
+      if (ax >= 1) return x.toFixed(3);
+      return x.toFixed(4);
+    }
+
+    // --- Render ---
+    function render() {
+      const g = [];
+
+      // Grid background
+      g.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="url(#bg)" />`);
+
+      // Axes
+      drawAxes(g);
+
+      // Shaded area(s)
+      const shaded = buildShadedAreaPath();
+      shaded.forEach(path => {
+        g.push(`<path d="${path}" fill="var(--accent-2)" fill-opacity="0.35" stroke="rgba(255,255,255,0.12)" />`);
+      });
+
+      // Density curve
+      const curve = buildCurvePath();
+      g.push(`<path d="${curve}" fill="none" stroke="var(--accent)" stroke-width="2.25" />`);
+
+      // Vertical markers for x1 and x2
+      const x1px = xScale(state.x1), x2px = xScale(state.x2);
+      const baseY = yScale(0);
+      g.push(`<line x1="${x1px}" y1="${pad.t}" x2="${x1px}" y2="${baseY}" stroke="rgba(255,255,255,0.25)" stroke-dasharray="4 4" />`);
+      g.push(`<line x1="${x2px}" y1="${pad.t}" x2="${x2px}" y2="${baseY}" stroke="rgba(255,255,255,0.25)" stroke-dasharray="4 4" />`);
+
+      // Definitions for subtle vignette
+      const defs = `
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.02)" />
+            <stop offset="100%" stop-color="rgba(255,255,255,0.01)" />
+          </linearGradient>
+        </defs>`;
+
+      el.chart.innerHTML = defs + g.join('');
+
+      // Stats
+      const p = Math.max(0, Math.min(1, probability()));
+      el.p.textContent = `P = ${p.toFixed(6)}`;
+      const z1 = (state.x1 - state.mu) / state.sigma;
+      const z2 = (state.x2 - state.mu) / state.sigma;
+      el.z1.textContent = `z₁ = ${formatNumber(z1)}`;
+      el.z2.textContent = `z₂ = ${formatNumber(z2)}`;
+
+      // Update slider ranges for x1/x2 to remain sensible with new μ,σ
+      const minX = state.mu - 5 * state.sigma;
+      const maxX = state.mu + 5 * state.sigma;
+      [el.x1, el.x2].forEach(r => { r.min = minX; r.max = maxX; });
+      [el.x1Num, el.x2Num].forEach(n => { n.min = minX; n.max = maxX; });
+    }
+
+    // --- Wiring ---
+    function syncPair(range, number, key, transform = v => +v) {
+      function setBoth(val) {
+        range.value = val; number.value = val; state[key] = +val; render();
+      }
+      range.addEventListener('input', e => setBoth(transform(e.target.value)));
+      number.addEventListener('input', e => setBoth(transform(e.target.value)));
+    }
+
+    // Radio group
+    document.querySelectorAll('input[name="mode"]').forEach(r => {
+      r.addEventListener('change', e => { state.mode = e.target.value; render(); });
+    });
+
+    // Pairs
+    syncPair(el.mu, el.muNum, 'mu');
+    syncPair(el.sigma, el.sigmaNum, 'sigma', v => Math.max(0.1, +v));
+    syncPair(el.x1, el.x1Num, 'x1');
+    syncPair(el.x2, el.x2Num, 'x2');
+
+    el.reset.addEventListener('click', () => {
+      state.mu = 0; state.sigma = 1; state.x1 = -1; state.x2 = 1; state.mode = 'between';
+      el.mu.value = el.muNum.value = 0;
+      el.sigma.value = el.sigmaNum.value = 1;
+      el.x1.value = el.x1Num.value = -1;
+      el.x2.value = el.x2Num.value = 1;
+      document.querySelector('input[name="mode"][value="between"]').checked = true;
+      render();
+    });
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
